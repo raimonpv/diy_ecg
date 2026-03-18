@@ -33,7 +33,7 @@ Notes:
 # ONLY CHANGE THESE:
 PORT = 'COM4'       # COM# for Windows devices # ls /dev/cu.*
 BAUD = 115200       # 115200 (USB) | 115200 (JDY-31 Bluetooth)
-# Change lines 53-54 with valid font paths.
+# Change lines 53-54 from printer.py with valid fonts paths.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # Imports
