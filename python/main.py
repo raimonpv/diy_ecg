@@ -29,14 +29,8 @@ Notes:
   - ESC/POS printing is handled via libusb (no OS print driver)
 
 """
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ONLY CHANGE THESE:
-PORT = 'COM4'       # COM# for Windows devices # ls /dev/cu.*
-BAUD = 115200       # 115200 (USB) | 115200 (JDY-31 Bluetooth)
-# Change lines 53-54 from printer.py with valid fonts paths.
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 # Imports
+import argparse
 import sys
 import time
 import threading
@@ -51,14 +45,14 @@ from printer import render_full_receipt, image_to_escpos, send_to_printer, INIT,
 
 # ── ECG streaming config ──────────────────────────────────────────────────────
 
-FS             = 200   # Hz — must match Arduino SAMPLE_RATE
-WINDOW_S       = 10    # seconds of data to buffer and capture (10s min for reliable HRV)
-PRINT_WINDOW_S = 6   # seconds of ECG trace shown on the printed receipt
-N              = int(FS * WINDOW_S)
+FS             = 200      # Hz — must match Arduino SAMPLE_RATE
+BAUD           = 115200   # must match Arduino Serial baud rate
+WINDOW_S       = 10       # seconds of data to buffer (10s min for reliable HRV)
+PRINT_WINDOW_S = 6        # seconds of ECG trace shown on the printed receipt
 
 
 # ── Live streaming + plot ─────────────────────────────────────────────────────
-def print_ecg_raw(raw_samples, sample_rate=FS, debug=False):
+def print_ecg_raw(raw_samples, sample_rate, debug=False):
     """Process raw ADC samples and print. Called by the key handler."""
     data    = process_raw_ecg(raw_samples, sample_rate, print_window_s=PRINT_WINDOW_S)
     print("  Rendering receipt...")
@@ -74,8 +68,9 @@ def print_ecg_raw(raw_samples, sample_rate=FS, debug=False):
     print("  Done!")
 
 
-def run_live(ser):
+def run_live(ser, fs, window_s):
     """Read serial stream, show live plot. Press P to print, Q to quit."""
+    N = int(fs * window_s)
     buf         = deque(maxlen=N)   # stores (t_sec, adc_value)
     printing    = False
     should_quit = False
@@ -100,9 +95,9 @@ def run_live(ser):
                 continue
             v = int(val_str)
             if len(parts) == 2 and parts[0].strip().isdigit():
-                t = int(parts[0].strip()) / FS
+                t = int(parts[0].strip()) / fs
             elif buf:
-                t = buf[-1][0] + 1.0 / FS
+                t = buf[-1][0] + 1.0 / fs
             else:
                 t = 0.0
             buf.append((t, v))
@@ -117,7 +112,7 @@ def run_live(ser):
     ax.set_title("ECG stream  |  P = print  |  Q = quit", fontsize=11)
     ax.set_xlabel("time (s)")
     ax.set_ylabel("ADC")
-    ax.set_xlim(-WINDOW_S, 0)
+    ax.set_xlim(-window_s, 0)
     ax.set_facecolor('#1a1a2e')
     fig.patch.set_facecolor('#1a1a2e')
     ax.tick_params(colors='white')
@@ -137,8 +132,8 @@ def run_live(ser):
             if printing:
                 print("Already printing — wait for it to finish.")
                 return
-            if len(buf) < FS * 2:
-                print(f"Buffer only {len(buf)/FS:.1f}s full — wait for more data.")
+            if len(buf) < fs * 2:
+                print(f"Buffer only {len(buf)/fs:.1f}s full — wait for more data.")
                 return
 
             _, raw_vals = zip(*buf)
@@ -147,9 +142,9 @@ def run_live(ser):
             def do_print():
                 nonlocal printing
                 printing = True
-                print(f"\nCapturing {len(samples)} samples ({len(samples)/FS:.1f}s)...")
+                print(f"\nCapturing {len(samples)} samples ({len(samples)/fs:.1f}s)...")
                 try:
-                    print_ecg_raw(samples)
+                    print_ecg_raw(samples, fs)
                 except Exception as e:
                     print(f"  Print failed: {e}")
                 finally:
@@ -159,7 +154,7 @@ def run_live(ser):
 
     fig.canvas.mpl_connect("key_press_event", on_key)
 
-    print(f"Streaming from {PORT} at {BAUD} baud...")
+    print(f"Streaming at {fs} Hz, {window_s}s buffer...")
     print("Watch the plot — press P to print, Q to quit.\n")
 
     reader.start()
@@ -179,19 +174,42 @@ def run_live(ser):
         plt.ioff()
         plt.close(fig)
 
+def _detect_port():
+    """Try to auto-detect the Arduino serial port."""
+    import serial.tools.list_ports
+    for p in serial.tools.list_ports.comports():
+        desc = (p.description or "").lower()
+        if any(k in desc for k in ("arduino", "ch340", "cp210", "ftdi", "usb serial")):
+            return p.device
+    return None
+
+
 if __name__ == '__main__':
-    print(f"Opening {PORT} at {BAUD} baud...")
+    parser = argparse.ArgumentParser(description="ECG live streaming and receipt printing")
+    parser.add_argument("--port", default=None, help="Serial port (e.g. COM4, /dev/ttyUSB0). Auto-detected if omitted")
+    args = parser.parse_args()
+
+    port = args.port or _detect_port()
+    if not port:
+        print("Error: no serial port specified and auto-detection failed.")
+        print("Use --port to specify it (e.g. --port /dev/ttyUSB0 or --port COM4)")
+        print("\nAvailable ports:")
+        import serial.tools.list_ports
+        for p in serial.tools.list_ports.comports():
+            print(f"  {p.device} — {p.description}")
+        sys.exit(1)
+
+    print(f"Opening {port} at {BAUD} baud...")
     try:
-        ser = serial.Serial(PORT, BAUD, timeout=1)
+        ser = serial.Serial(port, BAUD, timeout=1)
     except serial.SerialException as e:
-        print(f"Could not open {PORT}: {e}")
-        print("Check Device Manager for the correct COM port number.")
+        print(f"Could not open {port}: {e}")
         sys.exit(1)
 
     time.sleep(2)          # wait for Arduino auto-reset
     ser.reset_input_buffer()
 
     try:
-        run_live(ser)
+        run_live(ser, FS, WINDOW_S)
     finally:
         ser.close()

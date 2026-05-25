@@ -1,0 +1,16 @@
+name: ecg
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - matplotlib
+  - scipy
+  - pillow
+  - pip
+  - pip:
+    - pyserial
+    - pyusb
+    - libusb_package
+    - neurokit2

@@ -49,9 +49,43 @@ BG_COLOR      = 255
 PX_PER_SAMPLE = 1.2
 MIN_CANVAS_W  = 800
 
-# Update Fonts with valid paths
-FONT_BODY = "/System/Library/Fonts/Times.ttc"
-FONT_BOLD = "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf"
+# Font detection — tries common paths per OS, falls back to Pillow default
+import os
+
+def _find_font(candidates):
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+_BODY_CANDIDATES = [
+    # macOS
+    "/System/Library/Fonts/Times.ttc",
+    "/System/Library/Fonts/Helvetica.ttc",
+    # Linux
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/LiberationSerif-Regular.ttf",
+    # Windows
+    "C:\\Windows\\Fonts\\times.ttf",
+    "C:\\Windows\\Fonts\\arial.ttf",
+]
+
+_BOLD_CANDIDATES = [
+    # macOS
+    "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
+    "/System/Library/Fonts/Helvetica.ttc",
+    # Linux
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/TTF/LiberationSerif-Bold.ttf",
+    # Windows
+    "C:\\Windows\\Fonts\\timesbd.ttf",
+    "C:\\Windows\\Fonts\\arialbd.ttf",
+]
+
+FONT_BODY = _find_font(_BODY_CANDIDATES)
+FONT_BOLD = _find_font(_BOLD_CANDIDATES)
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
 def _text_size(font, text):
@@ -82,10 +116,15 @@ def render_full_receipt(data):
     ecg_pts = data['ecg_points']
     now     = datetime.datetime.now()
 
-    font_stats = ImageFont.truetype(FONT_BODY, 20)
-    font_bpm   = ImageFont.truetype(FONT_BOLD, 28)
-    font_org1  = ImageFont.truetype(FONT_BOLD, 36)
-    font_org2  = ImageFont.truetype(FONT_BOLD, 28)
+    def _load_font(path, size):
+        if path:
+            return ImageFont.truetype(path, size)
+        return ImageFont.load_default()
+
+    font_stats = _load_font(FONT_BODY, 20)
+    font_bpm   = _load_font(FONT_BOLD, 28)
+    font_org1  = _load_font(FONT_BOLD, 36)
+    font_org2  = _load_font(FONT_BOLD, 28)
 
     canvas_w = max(MIN_CANVAS_W, int(len(ecg_pts) * PX_PER_SAMPLE))
     canvas_h = PAPER_WIDTH
