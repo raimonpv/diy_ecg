@@ -2,8 +2,6 @@
 
 A homemade ECG device that streams live heart signals, displays them in real time, and prints a receipt with your heart rate and ECG waveform on a thermal printer.
 
-Built for the **San Diego Festival of Science & Engineering** by the **Bioengineering Graduate Society at UCSD**.
-
 ## Safety
 
 > **This is NOT a medical device.** It is an educational demo only. Do not use it to diagnose or monitor any medical condition.
@@ -11,6 +9,7 @@ Built for the **San Diego Festival of Science & Engineering** by the **Bioengine
 > - **Do not use on people with pacemakers or other implanted devices.**
 > - It is **strongly recommended** to power the Arduino with a **9V battery** and use the **Bluetooth module** for data transmission. This electrically isolates the device from mains power, eliminating any risk of current leakage through the electrodes.
 > - Never connect the Arduino to a wall-powered computer while electrodes are attached to a person.
+> - **Use at your own risk.** The authors of this project assume no responsibility for any injury, damage, or other consequence resulting from the construction or use of this device. This project is shared as-is, with no warranty of any kind.
 
 ## What it does
 
@@ -169,6 +168,21 @@ Each printed receipt includes:
 **Bluetooth garbled or no data**
 - The JDY-31 ships at 9600 baud, but the firmware in `arduino/main.ino` speaks 115200. Upload `arduino/buad.ino` once, open the Serial Monitor, and send `AT+BAUD8` to reconfigure the module to 115200. After that the module remembers the setting, so you only need to do this once per JDY-31.
 
+## Educational Materials
+
+[`demo_poster.pptx`](demo_poster.pptx) (with a printable [`demo_poster.pdf`](demo_poster.pdf) version) is the poster we use at the demo table to explain what's happening to middle schoolers. It covers heart anatomy — the four chambers, the valves, and how blood circulates between the lungs and body — and walks through a single heartbeat as it appears on the ECG: the **P wave** (atria squeezing), the **QRS complex** (ventricles pushing blood out), and the **T wave** (heart resetting).
+
+Print the PDF on poster paper for the demo table, or display it on a screen next to the live plot.
+
+## Authors
+
+This project was built by:
+
+- **Philip Emmanuele** — [pemmanue@ucsd.edu](mailto:pemmanue@ucsd.edu)
+- **Raimon Padrós-Valls** — [rpadrosivalls@ucsd.edu](mailto:rpadrosivalls@ucsd.edu)
+
+Reach out to either of us if you have questions about replicating, running, or extending the project.
+
 ## Project Structure
 
 ```
@@ -180,6 +194,8 @@ diy_ecg/
 │   ├── main.py           # Live streaming, plotting, and print trigger
 │   ├── ecg.py            # Signal processing (R-peak detection, BPM, HRV)
 │   └── printer.py        # Receipt rendering and USB thermal printing
+├── demo_poster.pptx      # Heart + ECG explainer poster (editable source)
+├── demo_poster.pdf       # Printable PDF of the poster
 ├── environment.yml       # Conda environment
 └── README.md
 ```
